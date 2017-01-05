@@ -24,8 +24,14 @@ import uk.gov.hmrc.play.events.handlers._
 @Singleton
 class TxmEventRecorder @Inject()(loggerEventHandler: LoggerEventHandler,
                                  alertEventHandler: AlertEventHandler,
-                                 metricsEventHandler: MetricsEventHandler) extends EventRecorder {
+                                 metricsEventHandler: MetricsEventHandler,
+                                 auditEventHandler: AuditEventHandler) extends EventRecorder {
 
-  override def eventHandlers: Set[EventHandler] = Set(loggerEventHandler, alertEventHandler, metricsEventHandler)
+  override def eventHandlers: Set[EventHandler] = Set(
+    loggerEventHandler,
+    alertEventHandler,
+    metricsEventHandler,
+    auditEventHandler
+  )
 
 }

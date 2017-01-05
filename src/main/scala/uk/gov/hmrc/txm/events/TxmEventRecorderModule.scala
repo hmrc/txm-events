@@ -19,7 +19,7 @@ package uk.gov.hmrc.txm.events
 import play.api.{Configuration, Environment}
 import play.api.inject.{Binding, Module}
 import uk.gov.hmrc.play.events.EventRecorder
-import uk.gov.hmrc.play.events.handlers.{AlertEventHandler, LoggerEventHandler, MetricsEventHandler}
+import uk.gov.hmrc.play.events.handlers.{AlertEventHandler, AuditEventHandler, LoggerEventHandler, MetricsEventHandler}
 
 class TxmEventRecorderModule extends Module {
 
@@ -28,6 +28,7 @@ class TxmEventRecorderModule extends Module {
       bind[LoggerEventHandler].to[GuiceLoggerEventHandler],
       bind[AlertEventHandler].to[GuiceAlertEventHandler],
       bind[MetricsEventHandler].to[KenshooMetricsEventHandler],
+      bind[AuditEventHandler].to[GuiceAuditEventHandler],
       bind[EventRecorder].to[TxmEventRecorder]
     )
   }

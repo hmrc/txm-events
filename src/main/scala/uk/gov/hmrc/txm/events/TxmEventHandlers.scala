@@ -20,6 +20,7 @@ import javax.inject.{Inject, Singleton}
 
 import com.codahale.metrics.{Counter, Meter, Timer}
 import com.kenshoo.play.metrics.Metrics
+import uk.gov.hmrc.play.audit.http.connector.AuditConnector
 import uk.gov.hmrc.play.events.handlers._
 import uk.gov.hmrc.play.events.{Alertable, Loggable, Measurable}
 
@@ -36,6 +37,9 @@ class GuiceAlertEventHandler extends AlertEventHandler {
   override def handleAlertable(alertable: Alertable): Unit = DefaultAlertEventHandler.handleAlertable(alertable)
 
 }
+
+@Singleton
+class GuiceAuditEventHandler @Inject()(override val auditConnector: AuditConnector) extends AuditEventHandler
 
 @Singleton
 class KenshooMetricsEventHandler @Inject()(metrics: Metrics) extends MetricsEventHandler {
