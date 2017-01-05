@@ -1,12 +1,12 @@
+
+import play.core.PlayVersion
 import sbt.Keys._
 import sbt._
 import uk.gov.hmrc.SbtAutoBuildPlugin
 import uk.gov.hmrc.versioning.SbtGitVersioning
 
-
 object HmrcBuild extends Build {
 
-  import BuildDependencies._
   import uk.gov.hmrc.DefaultBuildSettings._
 
   val appName = "txm-events"
@@ -18,25 +18,17 @@ object HmrcBuild extends Build {
       targetJvm := "jvm-1.8",
       scalaVersion := "2.11.8",
       libraryDependencies ++= Seq(
-        Test.scalaTest,
-        Test.pegdown
+        "javax.inject" % "javax.inject" % "1",
+        "uk.gov.hmrc" %% "play-events" % "1.2.0",
+        "de.threedimensions" %% "metrics-play" % "2.5.13",
+        "uk.gov.hmrc" %% "http-verbs" % "6.2.0" % "provided",
+        "uk.gov.hmrc" %% "play-auditing" % "2.4.0" % "provided",
+        "com.typesafe.play" %% "play" % PlayVersion.current,
+        "org.scalatest" %% "scalatest" % "2.2.6" % "test",
+        "org.pegdown" % "pegdown" % "1.5.0" % "test"
       ),
       Developers()
     )
-}
-
-private object BuildDependencies {
-
-  object Compile {
-  }
-
-  sealed abstract class Test(scope: String) {
-    val scalaTest = "org.scalatest" %% "scalatest" % "2.2.6" % scope
-    val pegdown = "org.pegdown" % "pegdown" % "1.5.0" % scope
-  }
-
-  object Test extends Test("test")
-
 }
 
 object Developers {
