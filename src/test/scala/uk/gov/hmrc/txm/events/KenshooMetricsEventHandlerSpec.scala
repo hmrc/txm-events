@@ -28,7 +28,7 @@ import org.scalatest.{MustMatchers, WordSpec}
 import uk.gov.hmrc.play.events.Auditable
 import uk.gov.hmrc.play.http.HeaderCarrier
 
-class KenshooMetricsEventHandlerTest extends WordSpec with MustMatchers {
+class KenshooMetricsEventHandlerSpec extends WordSpec with MustMatchers {
 
   class MockMeter(name: String) extends Meter {
 
@@ -165,7 +165,7 @@ class KenshooMetricsEventHandlerTest extends WordSpec with MustMatchers {
 
     "update existing timer given kenshoo timer event" in new Scenario {
       val duration = 42.seconds
-      val event = SimpleKenshooTimerEvent("source", timerName, Map(), duration)
+      val event = SimpleKenshooTimerEvent("source", timerName, duration)
       handler.handle(event)
       registry.getTimers.size() must be(1) // no new timer was added
       mockTimer.updated must be(true) // the existing timer was updated ...
@@ -175,7 +175,7 @@ class KenshooMetricsEventHandlerTest extends WordSpec with MustMatchers {
 
     "register and update new timer given kenshoo timer event" in new Scenario {
       val duration = 42.seconds
-      val event = SimpleKenshooTimerEvent("source", "thisIsANewTimer", Map(), duration)
+      val event = SimpleKenshooTimerEvent("source", "thisIsANewTimer", duration)
       handler.handle(event)
       registry.getTimers.size() must be(2) // one new timer was added
       val newTimer = registry.getTimers.get(event.name).asInstanceOf[MockTimer]
@@ -186,7 +186,7 @@ class KenshooMetricsEventHandlerTest extends WordSpec with MustMatchers {
 
     "mark existing meter event given kenshoo meter event" in new Scenario {
       val value = 42
-      val event = SimpleKenshooMeterEvent("source", meterName, Map(), value)
+      val event = SimpleKenshooMeterEvent("source", meterName, value)
       handler.handle(event)
       registry.getMeters.size() must be(1) // no new meter was added
       mockMeter.marked must be(true) // the existing meter was marked ...
@@ -195,7 +195,7 @@ class KenshooMetricsEventHandlerTest extends WordSpec with MustMatchers {
 
     "register and mark new meter event given kenshoo meter event" in new Scenario {
       val value = 42
-      val event = SimpleKenshooMeterEvent("source", "thisIsANewMeter", Map(), value)
+      val event = SimpleKenshooMeterEvent("source", "thisIsANewMeter", value)
       handler.handle(event)
       registry.getMeters.size() must be(2) // one new meter was added
       val newMeter = registry.getMeters.get(event.name).asInstanceOf[MockMeter]
@@ -204,14 +204,14 @@ class KenshooMetricsEventHandlerTest extends WordSpec with MustMatchers {
     }
 
     "increment existing counter event given kenshoo counter event" in new Scenario {
-      val event = SimpleKenshooCounterEvent("source", counterName, Map())
+      val event = SimpleKenshooCounterEvent("source", counterName)
       handler.handle(event)
       registry.getCounters.size() must be(1) // no new counter was added
       mockCounter.incremented must be(true) // the existing counter was incremented
     }
 
     "register and increment new counter event given kenshoo counter event" in new Scenario {
-      val event = SimpleKenshooCounterEvent("source", "thisIsANewCounter", Map())
+      val event = SimpleKenshooCounterEvent("source", "thisIsANewCounter")
       handler.handle(event)
       registry.getCounters.size() must be(2) // one new counter was added
       val newCounter = registry.getCounters.get(event.name).asInstanceOf[MockCounter]

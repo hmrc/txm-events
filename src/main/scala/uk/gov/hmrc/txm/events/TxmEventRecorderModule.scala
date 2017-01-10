@@ -16,17 +16,16 @@
 
 package uk.gov.hmrc.txm.events
 
-import com.kenshoo.play.metrics.{Metrics, MetricsImpl}
+import com.kenshoo.play.metrics.PlayModule
+import play.api.inject.Binding
 import play.api.{Configuration, Environment}
-import play.api.inject.{Binding, Module}
 import uk.gov.hmrc.play.events.EventRecorder
 import uk.gov.hmrc.play.events.handlers.{AlertEventHandler, AuditEventHandler, LoggerEventHandler, MetricsEventHandler}
 
-class TxmEventRecorderModule extends Module {
+class TxmEventRecorderModule extends PlayModule {
 
   override def bindings(environment: Environment, configuration: Configuration): Seq[Binding[_]] = {
-    Seq(
-      bind[Metrics].to[MetricsImpl],
+    super.bindings(environment, configuration) ++ Seq(
       bind[LoggerEventHandler].to[GuiceLoggerEventHandler],
       bind[AlertEventHandler].to[GuiceAlertEventHandler],
       bind[MetricsEventHandler].to[KenshooMetricsEventHandler],

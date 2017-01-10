@@ -36,14 +36,14 @@ trait KenshooTimerEvent extends Measurable {
 
 case class SimpleKenshooTimerEvent(source: String,
                                    name: String,
-                                   data: Map[String, String],
-                                   timerValue: Duration) extends KenshooTimerEvent
+                                   timerValue: Duration,
+                                   data: Map[String, String] = Map.empty) extends KenshooTimerEvent
 
 case class SimpleKenshooMeterEvent(source: String,
                                    name: String,
-                                   data: Map[String, String],
-                                   meterValue: Long) extends KenshooMeterEvent
+                                   meterValue: Long,
+                                   data: Map[String, String] = Map.empty) extends KenshooMeterEvent
 
 case class SimpleKenshooCounterEvent(source: String,
                                      name: String,
-                                     data: Map[String, String]) extends KenshooCounterEvent
+                                     data: Map[String, String] = Map.empty) extends KenshooCounterEvent

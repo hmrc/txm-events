@@ -23,8 +23,9 @@ object HmrcBuild extends Build {
         "de.threedimensions" %% "metrics-play" % "2.5.13",
         "uk.gov.hmrc" %% "http-verbs" % "6.2.0" % "provided",
         "uk.gov.hmrc" %% "play-auditing" % "2.4.0" % "provided",
+        "uk.gov.hmrc" %% "play-config" % "3.0.0",
         "com.typesafe.play" %% "play" % PlayVersion.current,
-        "org.scalatest" %% "scalatest" % "2.2.6" % "test",
+        "org.scalatest" %% "scalatest" % "3.0.1" % "test",
         "org.pegdown" % "pegdown" % "1.5.0" % "test"
       ),
       Developers()
