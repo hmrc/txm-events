@@ -30,7 +30,8 @@ class TxmEventRecorderModule extends PlayModule {
       bind[AlertEventHandler].to[GuiceAlertEventHandler],
       bind[MetricsEventHandler].to[KenshooMetricsEventHandler],
       bind[AuditEventHandler].to[GuiceAuditEventHandler],
-      bind[EventRecorder].to[TxmEventRecorder]
+      bind[EventRecorder].to[TxmEventRecorder],
+      bind[TxmMonitor].to[TxmThirdPartWebServiceCallMonitor]
     )
   }
 
