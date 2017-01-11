@@ -26,7 +26,8 @@ object HmrcBuild extends Build {
         "uk.gov.hmrc" %% "play-config" % "3.0.0",
         "com.typesafe.play" %% "play" % PlayVersion.current,
         "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-        "org.pegdown" % "pegdown" % "1.5.0" % "test"
+        "org.pegdown" % "pegdown" % "1.5.0" % "test",
+        "com.typesafe.play" %% "play-test" % PlayVersion.current % "test"
       ),
       Developers()
     )

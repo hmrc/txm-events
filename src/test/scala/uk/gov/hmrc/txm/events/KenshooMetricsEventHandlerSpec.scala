@@ -217,7 +217,6 @@ class KenshooMetricsEventHandlerSpec extends WordSpec with MustMatchers {
       val newCounter = registry.getCounters.get(event.name).asInstanceOf[MockCounter]
       newCounter.incremented must be(true) // the new counter was incremented
     }
-
   }
 
 }

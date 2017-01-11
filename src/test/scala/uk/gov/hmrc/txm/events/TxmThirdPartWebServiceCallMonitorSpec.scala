@@ -16,15 +16,19 @@
 
 package uk.gov.hmrc.txm.events
 
+import com.google.common.base.CaseFormat
 import org.scalatest.AsyncWordSpec
 import play.api.http.HeaderNames
+import play.api.mvc.{AnyContent, Request}
+import play.api.test.FakeRequest
 import uk.gov.hmrc.play.events.handlers.EventHandler
-import uk.gov.hmrc.play.events.{EventRecorder, Recordable}
+import uk.gov.hmrc.play.events.{Auditable, EventRecorder, Recordable}
 import uk.gov.hmrc.play.http._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, _}
+import uk.gov.hmrc.play.audit.AuditExtensions._
 
 // NB. This is a slightly gunky test. If you can think of a better way, be my guest ...
 class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
@@ -40,6 +44,11 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
     }
 
   }
+
+  val method = "GET"
+  val uri = "/foo/bar/baz"
+
+  implicit val req: Request[AnyContent] = FakeRequest(method, uri)
 
   class Scenario(systimeAtCalls: Option[Seq[Long]] = None) {
     var callNumber = 0;
@@ -91,6 +100,100 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
           assert(event.timerValue.toMillis == 10)
           assert(event.source == s.theAppName)
           assert(event.name == s"${s.theAppComponent}.${s.theServiceName}.${s.userAgent}.success.time")
+        }
+      }
+    }
+
+    "audit success given appropriate strategy" in {
+      val s = new Scenario
+      implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
+      val call = new ThirdPartyCall[String]("foo")
+      val key = "value"
+      implicit val strategy = new AuditStrategy {
+        override def auditDataOnSuccess[T](resp: T)
+                                          (implicit hc: HeaderCarrier, req: Request[AnyContent]): Map[String, String] = {
+          Map(key -> resp.toString)
+        }
+      }
+      s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
+        call.execute
+      } map {
+        case "foo" => {
+          val event: Auditable = s.recorder.recorded.flatMap {
+            case audit: Auditable => Some(audit)
+            case _ => None
+          }.head
+          assert(event.source == s.theAppName)
+          assert(event.name == s.theAppComponent)
+          assert(event.tags == hc.toAuditTags(s.theServiceName, req.uri))
+          assert(event.privateData == Map(key -> "foo"))
+        }
+      }
+    }
+
+    "not audit success given no appropriate strategy" in {
+      val s = new Scenario
+      implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
+      val call = new ThirdPartyCall[String]("foo")
+      s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
+        call.execute
+      } map {
+        case "foo" => {
+          val audits: Seq[Auditable] = s.recorder.recorded.flatMap {
+            case audit: Auditable => Some(audit)
+            case _ => None
+          }
+          assert(audits.isEmpty)
+        }
+      }
+    }
+
+    "not audit failure given no appropriate strategy" in {
+      val s = new Scenario
+      implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
+      val ex = new IllegalStateException("Oh no!")
+      val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
+        call.execute
+      } map {
+        case _ => assert(false, "Call should have failed!")
+      } recover {
+        case e: IllegalStateException => {
+          val events: Seq[Auditable] = s.recorder.recorded.flatMap {
+            case audit: Auditable => Some(audit)
+            case _ => None
+          }
+          assert(events.isEmpty)
+        }
+      }
+    }
+
+    "audit failure given appropriate strategy" in {
+      val s = new Scenario
+      implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
+      val ex = new IllegalStateException("Oh no!")
+      val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      val key = "msg"
+      implicit val strategy = new AuditStrategy {
+        override def auditDataOnFailure(ex: Exception)
+                                          (implicit hc: HeaderCarrier, req: Request[AnyContent]): Map[String, String] = {
+          Map(key -> ex.getMessage)
+        }
+      }
+      s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
+        call.execute
+      } map {
+        case _ => assert(false, "Call should have failed!")
+      } recover {
+        case e: IllegalStateException => {
+          val audit: Auditable = s.recorder.recorded.flatMap {
+            case audit: Auditable => Some(audit)
+            case _ => None
+          }.head
+          assert(audit.source == s.theAppName)
+          assert(audit.name == s.theAppComponent)
+          assert(audit.tags == hc.toAuditTags(s.theServiceName, req.uri))
+          assert(audit.privateData == Map("msg" -> ex.getMessage))
         }
       }
     }

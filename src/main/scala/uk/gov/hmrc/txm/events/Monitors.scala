@@ -19,9 +19,11 @@ package uk.gov.hmrc.txm.events
 import javax.inject.{Inject, Singleton}
 
 import play.api.http.HeaderNames
+import play.api.mvc.{AnyContent, Request}
+import uk.gov.hmrc.play.audit.AuditExtensions._
 import uk.gov.hmrc.play.config.AppName
 import uk.gov.hmrc.play.events.monitoring.EventSource
-import uk.gov.hmrc.play.events.{DefaultEventRecorder, EventRecorder}
+import uk.gov.hmrc.play.events.{Auditable, EventRecorder}
 import uk.gov.hmrc.play.http._
 
 import scala.concurrent.duration._
@@ -34,9 +36,14 @@ trait SystemTimeProvider {
 
 }
 
-trait TxmMonitor extends EventSource with DefaultEventRecorder {
+trait TxmMonitor extends EventSource {
 
-  def monitor[T](componentName: String, targetServiceName: String)(future: Future[T])(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[T] = future
+  def monitor[T](componentName: String, targetServiceName: String)
+                (future: Future[T])
+                (implicit hc: HeaderCarrier,
+                 ec: ExecutionContext,
+                 req: Request[AnyContent],
+                 aud: AuditStrategy): Future[T] = future
 
 }
 
@@ -45,19 +52,26 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
 
   override def source: String = appName
 
-  override def monitor[T](componentName: String, targetServiceName: String)(future: Future[T])(implicit hc: HeaderCarrier, ec: ExecutionContext): Future[T] = {
+  override def monitor[T](componentName: String, targetServiceName: String)
+                         (future: Future[T])
+                         (implicit hc: HeaderCarrier,
+                          ec: ExecutionContext,
+                          req: Request[AnyContent],
+                          aud: AuditStrategy = DefaultAuditStrategy): Future[T] = {
     super.monitor(componentName, targetServiceName) {
       val ua = hc.headers.toMap.get(HeaderNames.USER_AGENT).getOrElse("undefined")
       val t0 = millis()
       future andThen {
         case Success(t) => {
-          recordEndpointExecutionTime(componentName, targetServiceName, ua, "success", t0)
-          eventRecorder.record(SimpleKenshooCounterEvent(source, s"$componentName.$targetServiceName.$ua.success.count"))
+          recordTime(componentName, targetServiceName, ua, "success", t0)
+          recordCount(componentName, targetServiceName, ua, "success")
+          recordAudit(componentName, targetServiceName, aud.auditDataOnSuccess(t), aud.auditTagsOnSuccess(t))
         }
         case Failure(e: Exception) => {
           val status = exceptionToStatus(e)
-          if (time(e)) recordEndpointExecutionTime(componentName, targetServiceName, ua, status, t0)
-          recordEndpointFailureCount(componentName, targetServiceName, ua, status)
+          if (time(e)) recordTime(componentName, targetServiceName, ua, status, t0)
+          recordCount(componentName, targetServiceName, ua, status)
+          recordAudit(componentName, targetServiceName, aud.auditDataOnFailure(e), aud.auditTagsOnFailure(e))
         }
       }
     }
@@ -75,12 +89,50 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
     case _ => true
   }
 
-  private def recordEndpointFailureCount(componentName: String, targetServiceName: String, ua: String, status: Any)(implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
+  private def recordCount(componentName: String, targetServiceName: String, ua: String, status: Any)
+                         (implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
     eventRecorder.record(SimpleKenshooCounterEvent(source, s"$componentName.$targetServiceName.$ua.$status.count"))
   }
 
-  private def recordEndpointExecutionTime(componentName: String, targetServiceName: String, ua: String, status: Any, startTime: Long)(implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
+  private def recordTime(componentName: String, targetServiceName: String, ua: String, status: Any, startTime: Long)
+                        (implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
     eventRecorder.record(SimpleKenshooTimerEvent(source, s"$componentName.$targetServiceName.$ua.$status.time", (millis() - startTime).milliseconds))
   }
 
+  private def recordAudit(componentName: String, targetServiceName: String, auditData: Map[String, String] = Map.empty, additionalTags: Map[String, String] = Map.empty)
+                         (implicit hc: HeaderCarrier, ec: ExecutionContext, req: Request[AnyContent]): Unit = {
+    if (!auditData.isEmpty) eventRecorder.record(DefaultAuditMessage(source, componentName, hc.toAuditTags(targetServiceName, req.uri) ++ additionalTags, auditData))
+  }
+
 }
+
+case class DefaultAuditMessage(source: String,
+                               name: String,
+                               tags: Map[String, String],
+                               privateData: Map[String, String]) extends Auditable
+
+trait AuditStrategy {
+
+  // return a non-empty map to trigger an audit
+  def auditDataOnSuccess[T](resp: T)
+                           (implicit hc: HeaderCarrier,
+                            req: Request[AnyContent]): Map[String, String] = Map.empty
+
+  // optional additional tags on success audit
+  def auditTagsOnSuccess[T](resp: T)
+                           (implicit hc: HeaderCarrier,
+                            req: Request[AnyContent]): Map[String, String] = Map.empty
+
+  // return a non-empty map to trigger an audit
+  def auditDataOnFailure(e: Exception)
+                        (implicit hc: HeaderCarrier,
+                         req: Request[AnyContent]): Map[String, String] = Map.empty
+
+  // optional additional tags on failure audit
+  def auditTagsOnFailure[T](e: Exception)
+                           (implicit hc: HeaderCarrier,
+                            req: Request[AnyContent]): Map[String, String] = Map.empty
+
+}
+
+object DefaultAuditStrategy extends AuditStrategy
