@@ -89,6 +89,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       val s = new Scenario(Some(Seq(10, 20)))
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val call = new ThirdPartyCall[String]("foo")
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -109,8 +110,8 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val call = new ThirdPartyCall[String]("foo")
       val key = "value"
-      implicit val strategy = new AuditStrategy {
-        override def auditDataOnSuccess[T](resp: T)
+      implicit val strategy = new AuditStrategy[String] {
+        override def auditDataOnSuccess(resp: String)
                                           (implicit hc: HeaderCarrier, req: Request[AnyContent]): Map[String, String] = {
           Map(key -> resp.toString)
         }
@@ -135,6 +136,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       val s = new Scenario
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val call = new ThirdPartyCall[String]("foo")
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -153,6 +155,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new IllegalStateException("Oh no!")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -174,7 +177,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       val ex = new IllegalStateException("Oh no!")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
       val key = "msg"
-      implicit val strategy = new AuditStrategy {
+      implicit val strategy = new AuditStrategy[String] {
         override def auditDataOnFailure(ex: Exception)
                                           (implicit hc: HeaderCarrier, req: Request[AnyContent]): Map[String, String] = {
           Map(key -> ex.getMessage)
@@ -203,6 +206,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       val s = new Scenario
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val call = new ThirdPartyCall[String]("foo")
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -223,6 +227,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new HttpException("Random error", 555)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -252,6 +257,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new Upstream4xxResponse("We asked for the wrong thing", 404, 404)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -273,6 +279,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new Upstream4xxResponse("We asked for the wrong thing", 404, 404)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -296,6 +303,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new Upstream5xxResponse("They broke", 500, 500)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -317,6 +325,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new Upstream5xxResponse("They broke", 500, 500)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -340,6 +349,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new BadGatewayException("They're down")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -367,6 +377,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new GatewayTimeoutException("They're at the pub")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -394,6 +405,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new ServiceUnavailableException("They're being unfriendly")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {
@@ -421,6 +433,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
       implicit val hc = HeaderCarrier(otherHeaders = Seq((HeaderNames.USER_AGENT -> s.userAgent)))
       val ex = new IllegalArgumentException("Who knows why?")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
+      implicit val strategy = new AuditStrategy[String]() {}
       s.monitor.monitor[String](s.theAppComponent, s.theServiceName) {
         call.execute
       } map {

@@ -43,7 +43,7 @@ trait TxmMonitor extends EventSource {
                 (implicit hc: HeaderCarrier,
                  ec: ExecutionContext,
                  req: Request[AnyContent],
-                 aud: AuditStrategy): Future[T] = future
+                 aud: AuditStrategy[T]): Future[T] = future
 
 }
 
@@ -57,7 +57,7 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
                          (implicit hc: HeaderCarrier,
                           ec: ExecutionContext,
                           req: Request[AnyContent],
-                          aud: AuditStrategy = DefaultAuditStrategy): Future[T] = {
+                          aud: AuditStrategy[T]): Future[T] = {
     super.monitor(componentName, targetServiceName) {
       val ua = hc.headers.toMap.get(HeaderNames.USER_AGENT).getOrElse("undefined")
       val t0 = millis()
@@ -111,15 +111,15 @@ case class DefaultAuditMessage(source: String,
                                tags: Map[String, String],
                                privateData: Map[String, String]) extends Auditable
 
-trait AuditStrategy {
+trait AuditStrategy[T] {
 
   // return a non-empty map to trigger an audit
-  def auditDataOnSuccess[T](resp: T)
+  def auditDataOnSuccess(resp: T)
                            (implicit hc: HeaderCarrier,
                             req: Request[AnyContent]): Map[String, String] = Map.empty
 
   // optional additional tags on success audit
-  def auditTagsOnSuccess[T](resp: T)
+  def auditTagsOnSuccess(resp: T)
                            (implicit hc: HeaderCarrier,
                             req: Request[AnyContent]): Map[String, String] = Map.empty
 
@@ -129,10 +129,8 @@ trait AuditStrategy {
                          req: Request[AnyContent]): Map[String, String] = Map.empty
 
   // optional additional tags on failure audit
-  def auditTagsOnFailure[T](e: Exception)
+  def auditTagsOnFailure(e: Exception)
                            (implicit hc: HeaderCarrier,
                             req: Request[AnyContent]): Map[String, String] = Map.empty
 
 }
-
-object DefaultAuditStrategy extends AuditStrategy
