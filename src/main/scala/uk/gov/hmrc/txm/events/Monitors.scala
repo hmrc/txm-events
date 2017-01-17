@@ -36,6 +36,7 @@ trait SystemTimeProvider {
 
 }
 
+
 trait TxmMonitor extends EventSource {
 
   def monitor[T](componentName: String, targetServiceName: String)
@@ -46,6 +47,7 @@ trait TxmMonitor extends EventSource {
                  aud: AuditStrategy[T]): Future[T] = future
 
 }
+
 
 @Singleton
 class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) extends TxmMonitor with SystemTimeProvider with AppName {
@@ -59,7 +61,7 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
                           req: Request[AnyContent],
                           aud: AuditStrategy[T]): Future[T] = {
     super.monitor(componentName, targetServiceName) {
-      val ua = hc.headers.toMap.get(HeaderNames.USER_AGENT).getOrElse("undefined")
+      val ua = hc.headers.toMap.getOrElse(HeaderNames.USER_AGENT, "undefined")
       val t0 = millis()
       future andThen {
         case Success(t) => {
@@ -67,12 +69,11 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
           recordCount(componentName, targetServiceName, ua, "success")
           recordAudit(componentName, targetServiceName, aud.auditDataOnSuccess(t), aud.auditTagsOnSuccess(t))
         }
-        case Failure(e: Exception) => {
+        case Failure(e: Exception) =>
           val status = exceptionToStatus(e)
           if (time(e)) recordTime(componentName, targetServiceName, ua, status, t0)
           recordCount(componentName, targetServiceName, ua, status)
           recordAudit(componentName, targetServiceName, aud.auditDataOnFailure(e), aud.auditTagsOnFailure(e))
-        }
       }
     }
   }
@@ -81,47 +82,56 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
     case http: HttpException => http.responseCode
     case _4xx: Upstream4xxResponse => _4xx.reportAs
     case _5xx: Upstream5xxResponse => _5xx.reportAs
-    case e : Exception => e.getClass.getSimpleName
+    case e: Exception => e.getClass.getSimpleName
   }
 
   private def time(e: Exception): Boolean = e match {
-    case no @ (_ : BadGatewayException | _ : GatewayTimeoutException | _ : ServiceUnavailableException) => false
+    case no@(_: BadGatewayException | _: GatewayTimeoutException | _: ServiceUnavailableException) => false
     case _ => true
   }
 
   private def recordCount(componentName: String, targetServiceName: String, ua: String, status: Any)
                          (implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
-    eventRecorder.record(SimpleKenshooCounterEvent(source, s"$componentName.$targetServiceName.$ua.$status.count"))
+    val event = SimpleKenshooCounterEvent(source, s"$componentName.$targetServiceName.$ua.$status.count")
+    eventRecorder.record(event)
   }
 
   private def recordTime(componentName: String, targetServiceName: String, ua: String, status: Any, startTime: Long)
                         (implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
-    eventRecorder.record(SimpleKenshooTimerEvent(source, s"$componentName.$targetServiceName.$ua.$status.time", (millis() - startTime).milliseconds))
+    val duration = (millis() - startTime).milliseconds
+    val event = SimpleKenshooTimerEvent(source, s"$componentName.$targetServiceName.$ua.$status.time", duration)
+    eventRecorder.record(event)
   }
 
-  private def recordAudit(componentName: String, targetServiceName: String, auditData: Map[String, String] = Map.empty, additionalTags: Map[String, String] = Map.empty)
+  private def recordAudit(componentName: String, targetServiceName: String,
+                          auditData: Map[String, String] = Map.empty, additionalTags: Map[String, String] = Map.empty)
                          (implicit hc: HeaderCarrier, ec: ExecutionContext, req: Request[AnyContent]): Unit = {
-    if (!auditData.isEmpty) eventRecorder.record(DefaultAuditMessage(source, componentName, hc.toAuditTags(targetServiceName, req.uri) ++ additionalTags, auditData))
+    if (auditData.nonEmpty) {
+      val tags = hc.toAuditTags(targetServiceName, req.uri) ++ additionalTags
+      val message = DefaultAuditMessage(source, componentName, tags, auditData)
+      eventRecorder.record(message)
+    }
   }
-
 }
+
 
 case class DefaultAuditMessage(source: String,
                                name: String,
                                tags: Map[String, String],
                                privateData: Map[String, String]) extends Auditable
 
+
 trait AuditStrategy[T] {
 
   // return a non-empty map to trigger an audit
   def auditDataOnSuccess(resp: T)
-                           (implicit hc: HeaderCarrier,
-                            req: Request[AnyContent]): Map[String, String] = Map.empty
+                        (implicit hc: HeaderCarrier,
+                         req: Request[AnyContent]): Map[String, String] = Map.empty
 
   // optional additional tags on success audit
   def auditTagsOnSuccess(resp: T)
-                           (implicit hc: HeaderCarrier,
-                            req: Request[AnyContent]): Map[String, String] = Map.empty
+                        (implicit hc: HeaderCarrier,
+                         req: Request[AnyContent]): Map[String, String] = Map.empty
 
   // return a non-empty map to trigger an audit
   def auditDataOnFailure(e: Exception)
@@ -130,7 +140,7 @@ trait AuditStrategy[T] {
 
   // optional additional tags on failure audit
   def auditTagsOnFailure(e: Exception)
-                           (implicit hc: HeaderCarrier,
-                            req: Request[AnyContent]): Map[String, String] = Map.empty
+                        (implicit hc: HeaderCarrier,
+                         req: Request[AnyContent]): Map[String, String] = Map.empty
 
 }
