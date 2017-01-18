@@ -16,6 +16,8 @@
 
 package uk.gov.hmrc.txm.events
 
+import java.time.Clock
+
 import com.kenshoo.play.metrics.PlayModule
 import play.api.inject.Binding
 import play.api.{Configuration, Environment}
@@ -31,7 +33,8 @@ class TxmEventRecorderModule extends PlayModule {
       bind[MetricsEventHandler].to[KenshooMetricsEventHandler],
       bind[AuditEventHandler].to[GuiceAuditEventHandler],
       bind[EventRecorder].to[TxmEventRecorder],
-      bind[TxmMonitor].to[TxmThirdPartWebServiceCallMonitor]
+      bind[TxmMonitor].to[TxmThirdPartWebServiceCallMonitor],
+      bind[Clock].to(Clock.systemUTC)
     )
   }
 
