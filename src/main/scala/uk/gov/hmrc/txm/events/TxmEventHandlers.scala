@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.txm.events
 
+import java.util.concurrent.TimeUnit
 import javax.inject.{Inject, Singleton}
 
 import com.codahale.metrics.{Counter, Meter, Timer}
@@ -46,9 +47,11 @@ class KenshooMetricsEventHandler @Inject()(metrics: Metrics) extends MetricsEven
 
   override def handleMeasurable(measurable: Measurable) {
     measurable match {
-      case event: KenshooTimerEvent => findTimer(event).update(event.timerValue.length, event.timerValue.unit)
       case event: KenshooMeterEvent => findMeter(event).mark(event.meterValue)
       case event: KenshooCounterEvent => findCounter(event).inc()
+      case event: KenshooTimerEvent =>
+        val duration = event.timerValue // only call this method once here
+        findTimer(event).update(duration.toNanos, TimeUnit.NANOSECONDS)
       case _ =>
     }
   }

@@ -16,6 +16,8 @@
 
 package uk.gov.hmrc.txm.events
 
+import java.time.{Clock, Instant, ZoneId}
+
 import org.scalatest.AsyncWordSpec
 import play.api.http.HeaderNames
 import play.api.mvc.{AnyContent, Request}
@@ -49,14 +51,33 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
 
   implicit val req: Request[AnyContent] = FakeRequest(method, uri)
 
-  class Scenario(systimeAtCalls: Option[Seq[Long]] = None) {
-    var callNumber = 0
+  private val baseClock = Clock.systemDefaultZone
+
+  class CannedClock(systimeAtCalls: Seq[Long]) extends Clock {
+    private var callNumber = 0
+
+    def getZone: ZoneId = baseClock.getZone
+
+    override def instant(): Instant = {
+      if (systimeAtCalls.length > callNumber) {
+        val t = Instant ofEpochMilli systimeAtCalls(callNumber)
+        callNumber += 1
+        t
+      } else {
+        baseClock.instant()
+      }
+    }
+
+    override def withZone(zone: ZoneId): Clock = ???
+  }
+
+  class Scenario(clock: Clock = baseClock) {
     val userAgent = "some-hmrc-service"
     val theAppName = "txm-foo"
     val theAppComponent = "MyAppComponent"
     val theServiceName = "test-service"
-    val recorder = new EventRecorder {
 
+    val recorder = new EventRecorder {
       var recorded: Seq[Recordable] = Seq.empty
 
       override def eventHandlers: Set[EventHandler] = Set.empty
@@ -65,19 +86,9 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
         recorded = recorded :+ recordable
       }
     }
-    val monitor = new TxmThirdPartWebServiceCallMonitor(recorder) {
 
+    val monitor = new TxmThirdPartWebServiceCallMonitor(recorder, clock) {
       override lazy val appName = theAppName
-
-      override def millis(): Long = {
-        if (systimeAtCalls.isDefined && systimeAtCalls.get.length > callNumber) {
-          val t = systimeAtCalls.get(callNumber)
-          callNumber = callNumber + 1
-          t
-        } else {
-          super.millis()
-        }
-      }
     }
   }
 
@@ -85,7 +96,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
 
     // we called X and it took time T
     "record execution time metric for successful call" in {
-      val s = new Scenario(Some(Seq(10, 20)))
+      val s = new Scenario(new CannedClock(Seq(10, 20)))
       implicit val hc = HeaderCarrier(otherHeaders = Seq(HeaderNames.USER_AGENT -> s.userAgent))
       val call = new ThirdPartyCall[String]("foo")
       implicit val strategy = new AuditStrategy[String]() {}
@@ -217,7 +228,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
 
     // we have made N failed calls to X where we got a response
     "record count metric for failed call that is not gateway timeout, bad gateway, or service unavailable" in {
-      val s = new Scenario(Some(Seq(10, 20)))
+      val s = new Scenario(new CannedClock(Seq(10, 20)))
       implicit val hc = HeaderCarrier(otherHeaders = Seq(HeaderNames.USER_AGENT -> s.userAgent))
       val ex = new HttpException("Random error", 555)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
@@ -267,7 +278,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
     }
 
     "recorder 4xx call time metric for failed call" in {
-      val s = new Scenario(Some(Seq(10, 20)))
+      val s = new Scenario(new CannedClock(Seq(10, 20)))
       implicit val hc = HeaderCarrier(otherHeaders = Seq(HeaderNames.USER_AGENT -> s.userAgent))
       val ex = new Upstream4xxResponse("We asked for the wrong thing", 404, 404)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
@@ -311,7 +322,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
     }
 
     "recorder 5xx call time metric for failed call" in {
-      val s = new Scenario(Some(Seq(10, 20)))
+      val s = new Scenario(new CannedClock(Seq(10, 20)))
       implicit val hc = HeaderCarrier(otherHeaders = Seq(HeaderNames.USER_AGENT -> s.userAgent))
       val ex = new Upstream5xxResponse("They broke", 500, 500)
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))
@@ -416,7 +427,7 @@ class TxmThirdPartWebServiceCallMonitorSpec extends AsyncWordSpec {
 
     // something unexpected happened
     "record unexpected failure count and timer metrics for failed call" in {
-      val s = new Scenario(Some(Seq(10, 20)))
+      val s = new Scenario(new CannedClock(Seq(10, 20)))
       implicit val hc = HeaderCarrier(otherHeaders = Seq(HeaderNames.USER_AGENT -> s.userAgent))
       val ex = new IllegalArgumentException("Who knows why?")
       val call = new ThirdPartyCall[String]("foo", failure = Some(ex))

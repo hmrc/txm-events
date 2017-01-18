@@ -16,9 +16,10 @@
 
 package uk.gov.hmrc.txm.events
 
+import java.time.Duration
+
 import uk.gov.hmrc.play.events.Measurable
 
-import scala.concurrent.duration.Duration
 
 trait KenshooCounterEvent extends Measurable
 

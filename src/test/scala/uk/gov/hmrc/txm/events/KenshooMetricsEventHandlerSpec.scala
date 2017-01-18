@@ -16,12 +16,12 @@
 
 package uk.gov.hmrc.txm.events
 
+import java.time.Duration
 import java.util
 import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
 import com.codahale.metrics._
 import com.kenshoo.play.metrics.Metrics
 import org.scalatest.{MustMatchers, WordSpec}
@@ -50,14 +50,12 @@ class KenshooMetricsEventHandlerSpec extends WordSpec with MustMatchers {
 
     var updated = false
 
-    var durationOf: Option[Long] = None
+    var durationOf: Option[Duration] = None
 
-    var durationIn: Option[TimeUnit] = None
-
-    override def update(duration: Long, unit: TimeUnit): Unit = {
+    override def update(nanos: Long, unit: TimeUnit): Unit = {
+      assert(unit === TimeUnit.NANOSECONDS)
       updated = true
-      durationOf = Some(duration)
-      durationIn = Some(unit)
+      durationOf = Some(Duration.ofNanos(nanos))
     }
 
   }
@@ -164,24 +162,22 @@ class KenshooMetricsEventHandlerSpec extends WordSpec with MustMatchers {
     }
 
     "update existing timer given kenshoo timer event" in new Scenario {
-      val duration = 42.seconds
+      val duration = Duration.ofSeconds(42)
       val event = SimpleKenshooTimerEvent("source", timerName, duration)
       handler.handle(event)
       registry.getTimers.size() must be(1) // no new timer was added
       mockTimer.updated must be(true) // the existing timer was updated ...
-      mockTimer.durationOf must be(Some(duration.length)) // ... by 42 ...
-      mockTimer.durationIn must be(Some(duration.unit)) // ... seconds
+      mockTimer.durationOf must be(Some(duration)) // ... by 42 ...
     }
 
     "register and update new timer given kenshoo timer event" in new Scenario {
-      val duration = 42.seconds
+      val duration = Duration.ofSeconds(42)
       val event = SimpleKenshooTimerEvent("source", "thisIsANewTimer", duration)
       handler.handle(event)
       registry.getTimers.size() must be(2) // one new timer was added
       val newTimer = registry.getTimers.get(event.name).asInstanceOf[MockTimer]
       newTimer.updated must be(true) // the new timer was updated ...
-      newTimer.durationOf must be(Some(duration.length)) // ... by 42 ...
-      newTimer.durationIn must be(Some(duration.unit)) // ... seconds
+      newTimer.durationOf must be(Some(duration)) // ... by 42 ...
     }
 
     "mark existing meter event given kenshoo meter event" in new Scenario {

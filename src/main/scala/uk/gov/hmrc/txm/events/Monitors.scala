@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.txm.events
 
+import java.time.{Clock, Duration, Instant}
 import javax.inject.{Inject, Singleton}
 
 import play.api.http.HeaderNames
@@ -26,15 +27,8 @@ import uk.gov.hmrc.play.events.monitoring.EventSource
 import uk.gov.hmrc.play.events.{Auditable, EventRecorder}
 import uk.gov.hmrc.play.http._
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-
-trait SystemTimeProvider {
-
-  def millis(): Long = System.currentTimeMillis()
-
-}
 
 
 trait TxmMonitor extends EventSource {
@@ -50,7 +44,7 @@ trait TxmMonitor extends EventSource {
 
 
 @Singleton
-class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) extends TxmMonitor with SystemTimeProvider with AppName {
+class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder, clock: Clock) extends TxmMonitor with AppName {
 
   override def source: String = appName
 
@@ -62,13 +56,12 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
                           aud: AuditStrategy[T]): Future[T] = {
     super.monitor(componentName, targetServiceName) {
       val ua = hc.headers.toMap.getOrElse(HeaderNames.USER_AGENT, "undefined")
-      val t0 = millis()
+      val t0 = clock.instant()
       future andThen {
-        case Success(t) => {
+        case Success(t) =>
           recordTime(componentName, targetServiceName, ua, "success", t0)
           recordCount(componentName, targetServiceName, ua, "success")
           recordAudit(componentName, targetServiceName, aud.auditDataOnSuccess(t), aud.auditTagsOnSuccess(t))
-        }
         case Failure(e: Exception) =>
           val status = exceptionToStatus(e)
           if (time(e)) recordTime(componentName, targetServiceName, ua, status, t0)
@@ -91,21 +84,21 @@ class TxmThirdPartWebServiceCallMonitor @Inject()(eventRecorder: EventRecorder) 
   }
 
   private def recordCount(componentName: String, targetServiceName: String, ua: String, status: Any)
-                         (implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
+                         (implicit hc: HeaderCarrier, ec: ExecutionContext) {
     val event = SimpleKenshooCounterEvent(source, s"$componentName.$targetServiceName.$ua.$status.count")
     eventRecorder.record(event)
   }
 
-  private def recordTime(componentName: String, targetServiceName: String, ua: String, status: Any, startTime: Long)
-                        (implicit hc: HeaderCarrier, ec: ExecutionContext): Unit = {
-    val duration = (millis() - startTime).milliseconds
+  private def recordTime(componentName: String, targetServiceName: String, ua: String, status: Any, startTime: Instant)
+                        (implicit hc: HeaderCarrier, ec: ExecutionContext) {
+    val duration = Duration.between(startTime, clock.instant())
     val event = SimpleKenshooTimerEvent(source, s"$componentName.$targetServiceName.$ua.$status.time", duration)
     eventRecorder.record(event)
   }
 
   private def recordAudit(componentName: String, targetServiceName: String,
                           auditData: Map[String, String] = Map.empty, additionalTags: Map[String, String] = Map.empty)
-                         (implicit hc: HeaderCarrier, ec: ExecutionContext, req: Request[AnyContent]): Unit = {
+                         (implicit hc: HeaderCarrier, ec: ExecutionContext, req: Request[AnyContent]) {
     if (auditData.nonEmpty) {
       val tags = hc.toAuditTags(targetServiceName, req.uri) ++ additionalTags
       val message = DefaultAuditMessage(source, componentName, tags, auditData)
