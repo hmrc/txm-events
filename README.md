@@ -1,6 +1,8 @@
 
 # TxM Events
 
+THIS IS NOT USED
+
 [ ![Download](https://api.bintray.com/packages/hmrc/releases/txm-events/images/download.svg) ](https://bintray.com/hmrc/releases/txm-events/_latestVersion)
 
 This library aims to provide a supporting framework to ease consistent implementation of non-functional
